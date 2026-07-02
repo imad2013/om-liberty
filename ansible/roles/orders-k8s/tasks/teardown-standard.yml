@@ -83,38 +83,38 @@
   ignore_errors: true
   when: kafka_enabled | default(false) | bool
 
-- name: Remove PostgreSQL service
+- name: Remove Oracle service
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig_path }}"
     state: absent
     api_version: v1
     kind: Service
-    name: "{{ postgres_service_name | default('postgres') }}"
+    name: "{{ oracle_service_name | default('oracle') }}"
     namespace: "{{ orders_namespace }}"
   ignore_errors: true
-  when: postgres_enabled | default(false) | bool
+  when: oracle_enabled | default(false) | bool
 
-- name: Remove PostgreSQL deployment
+- name: Remove Oracle deployment
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig_path }}"
     state: absent
     api_version: apps/v1
     kind: Deployment
-    name: "{{ postgres_service_name | default('postgres') }}"
+    name: "{{ oracle_service_name | default('oracle') }}"
     namespace: "{{ orders_namespace }}"
   ignore_errors: true
-  when: postgres_enabled | default(false) | bool
+  when: oracle_enabled | default(false) | bool
 
-- name: Remove PostgreSQL PVC
+- name: Remove Oracle PVC
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig_path }}"
     state: absent
     api_version: v1
     kind: PersistentVolumeClaim
-    name: postgres-data
+    name: oracle-data
     namespace: "{{ orders_namespace }}"
   ignore_errors: true
-  when: postgres_enabled | default(false) | bool
+  when: oracle_enabled | default(false) | bool
 
 - name: Remove namespace
   kubernetes.core.k8s:

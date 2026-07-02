@@ -8,7 +8,7 @@
 #   - Liberty Docker image(s)
 #
 # Deploys to Kubernetes (via Ansible):
-#   - Namespace, PostgreSQL, Kafka (KRaft) + topics
+#   - Namespace, Oracle, Kafka (KRaft) + topics
 #   - orders-blue / orders-green, Service, Ingress, ServiceMonitor
 #
 # Usage:
@@ -210,7 +210,7 @@ deploy_kubernetes() {
       -e "orders_namespace=${ORDERS_NAMESPACE}" \
       -e "orders_image_pull_policy=${pull_policy}" \
       -e "kubeconfig_path=${KUBECONFIG_PATH}" \
-      -e "postgres_enabled=true" \
+      -e "oracle_enabled=true" \
       -e "kafka_enabled=true"
   )
 }

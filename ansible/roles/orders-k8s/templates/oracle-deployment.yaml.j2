@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ oracle_service_name }}
+  namespace: {{ orders_namespace }}
+  labels:
+    app: oracle
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle
+  template:
+    metadata:
+      labels:
+        app: oracle
+    spec:
+      containers:
+        - name: oracle
+          image: {{ oracle_image }}
+          imagePullPolicy: {{ orders_image_pull_policy }}
+          ports:
+            - containerPort: {{ oracle_port }}
+          volumeMounts:
+            - name: oracle-data
+              mountPath: /opt/oracle/oradata
+          readinessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - "echo 'SELECT 1 FROM DUAL;' | sqlplus -S {{ oracle_user }}/{{ oracle_password }}@//localhost:{{ oracle_port }}/{{ oracle_db }} | grep -q '1'"
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 20
+          livenessProbe:
+            exec:
+              command:
+                - /bin/bash
+                - -c
+                - "echo 'SELECT 1 FROM DUAL;' | sqlplus -S {{ oracle_user }}/{{ oracle_password }}@//localhost:{{ oracle_port }}/{{ oracle_db }} | grep -q '1'"
+            initialDelaySeconds: 180
+            periodSeconds: 30
+            failureThreshold: 10
+      volumes:
+        - name: oracle-data
+          persistentVolumeClaim:
+            claimName: oracle-data

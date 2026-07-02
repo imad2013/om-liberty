@@ -39,11 +39,11 @@ spec:
             - name: MP_METRICS_TAGS
               value: "version=v1,color=blue"
             - name: ORDERS_DB_URL
-              value: "jdbc:postgresql://{{ postgres_service_name }}:5432/{{ postgres_db }}"
+              value: "{{ orders_db_jdbc_url if orders_db_jdbc_url | default('', true) | length > 0 else 'jdbc:oracle:thin:@//' ~ oracle_service_name ~ ':' ~ oracle_port ~ '/' ~ oracle_db }}"
             - name: ORDERS_DB_USER
-              value: "{{ postgres_user }}"
+              value: "{{ oracle_user }}"
             - name: ORDERS_DB_PASSWORD
-              value: "{{ postgres_password }}"
+              value: "{{ oracle_password }}"
             - name: ORDERS_KAFKA_BOOTSTRAP_SERVERS
               value: "{{ kafka_bootstrap_servers }}"
             - name: ORDERS_KAFKA_TOPIC

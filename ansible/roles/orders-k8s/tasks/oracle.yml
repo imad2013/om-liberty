@@ -1,0 +1,38 @@
+---
+- name: Deploy Oracle PVC
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'oracle-pvc.yaml.j2') | from_yaml }}"
+
+- name: Deploy Oracle
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'oracle-deployment.yaml.j2') | from_yaml }}"
+
+- name: Deploy Oracle service
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'oracle-service.yaml.j2') | from_yaml }}"
+
+- name: Wait for Oracle to become ready
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ oracle_service_name }}"
+    namespace: "{{ orders_namespace }}"
+  register: oracle_deployment_info
+  until: >
+    oracle_deployment_info.resources | length > 0 and
+    (oracle_deployment_info.resources[0].status.readyReplicas | default(0) | int) >= 1
+  retries: "{{ (orders_rollout_wait_timeout | int) // 10 }}"
+  delay: 10
+
+- name: Show Oracle summary
+  ansible.builtin.debug:
+    msg:
+      - "Oracle image: {{ oracle_image }}"
+      - "Database: {{ oracle_db }}@{{ oracle_service_name }}:{{ oracle_port }}"

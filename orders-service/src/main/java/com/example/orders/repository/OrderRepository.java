@@ -32,18 +32,23 @@ public class OrderRepository {
 
     @PostConstruct
     void initSchema() {
-        try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
-            stmt.execute("""
-                CREATE TABLE IF NOT EXISTS orders (
-                    id BIGSERIAL PRIMARY KEY,
-                    customer_name VARCHAR(255) NOT NULL,
-                    product VARCHAR(255) NOT NULL,
-                    quantity INT NOT NULL,
-                    total_amount NUMERIC(12, 2) NOT NULL,
-                    status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
-                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                )
-                """);
+        try (Connection conn = getConnection()) {
+            if (tableExists(conn)) {
+                return;
+            }
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("""
+                    CREATE TABLE orders (
+                        id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                        customer_name VARCHAR2(255) NOT NULL,
+                        product VARCHAR2(255) NOT NULL,
+                        quantity NUMBER(10) NOT NULL,
+                        total_amount NUMBER(12, 2) NOT NULL,
+                        status VARCHAR2(50) DEFAULT 'PENDING' NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL
+                    )
+                    """);
+            }
         } catch (SQLException e) {
             LOG.log(Level.SEVERE, "Failed to initialize orders schema", e);
         }
@@ -51,7 +56,11 @@ public class OrderRepository {
 
     public List<Order> findAll() {
         List<Order> orders = new ArrayList<>();
-        String sql = "SELECT id, customer_name, product, quantity, total_amount, status, created_at FROM orders ORDER BY created_at DESC";
+        String sql = """
+            SELECT id, customer_name, product, quantity, total_amount, status, created_at
+            FROM orders
+            ORDER BY created_at DESC
+            """;
         try (Connection conn = getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -69,25 +78,29 @@ public class OrderRepository {
         String sql = """
             INSERT INTO orders (customer_name, product, quantity, total_amount, status)
             VALUES (?, ?, ?, ?, ?)
-            RETURNING id, customer_name, product, quantity, total_amount, status, created_at
             """;
         try (Connection conn = getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql, new String[]{"id"})) {
             ps.setString(1, customerName);
             ps.setString(2, product);
             ps.setInt(3, quantity);
             ps.setBigDecimal(4, totalAmount);
             ps.setString(5, OrderStatus.PENDING);
-            try (ResultSet rs = ps.executeQuery()) {
+            int inserted = ps.executeUpdate();
+            if (inserted == 0) {
+                throw new IllegalStateException("Insert did not affect any rows");
+            }
+            try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
-                    return mapRow(rs);
+                    long id = rs.getLong(1);
+                    return findById(id).orElseThrow(() -> new IllegalStateException("Inserted order not found"));
                 }
             }
         } catch (SQLException e) {
             LOG.log(Level.SEVERE, "Failed to insert order", e);
             throw new IllegalStateException("Failed to insert order", e);
         }
-        throw new IllegalStateException("Insert did not return order");
+        throw new IllegalStateException("Insert did not return order id");
     }
 
     public Optional<Order> findById(long id) {
@@ -112,26 +125,20 @@ public class OrderRepository {
     }
 
     public Order updateStatus(long id, String status) {
-        String sql = """
-            UPDATE orders
-            SET status = ?
-            WHERE id = ?
-            RETURNING id, customer_name, product, quantity, total_amount, status, created_at
-            """;
+        String sql = "UPDATE orders SET status = ? WHERE id = ?";
         try (Connection conn = getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, status);
             ps.setLong(2, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return mapRow(rs);
-                }
+            int updated = ps.executeUpdate();
+            if (updated == 0) {
+                throw new OrderNotFoundException(id);
             }
+            return findById(id).orElseThrow(() -> new OrderNotFoundException(id));
         } catch (SQLException e) {
             LOG.log(Level.SEVERE, "Failed to update order " + id, e);
             throw new IllegalStateException("Failed to update order", e);
         }
-        throw new OrderNotFoundException(id);
     }
 
     public void deleteById(long id) {
@@ -150,11 +157,24 @@ public class OrderRepository {
     }
 
     public boolean isDatabaseReachable() {
-        try (Connection conn = getConnection()) {
-            return conn.isValid(3);
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT 1 FROM DUAL");
+             ResultSet rs = ps.executeQuery()) {
+            return rs.next();
         } catch (SQLException e) {
             LOG.log(Level.WARNING, "Database health check failed", e);
             return false;
+        }
+    }
+
+    private boolean tableExists(Connection conn) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM user_tables WHERE table_name = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, "ORDERS");
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1) > 0;
+            }
         }
     }
 

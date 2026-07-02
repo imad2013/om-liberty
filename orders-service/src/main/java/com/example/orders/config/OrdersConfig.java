@@ -11,15 +11,15 @@ public class OrdersConfig {
     Config config;
 
     public String dbUrl() {
-        return value("orders.db.url", "ORDERS_DB_URL", "jdbc:postgresql://postgres:5432/orders");
+        return value("orders.db.url", "ORDERS_DB_URL", "jdbc:oracle:thin:@//oracle:1521/devdb");
     }
 
     public String dbUser() {
-        return value("orders.db.user", "ORDERS_DB_USER", "orders");
+        return value("orders.db.user", "ORDERS_DB_USER", "dbadmin");
     }
 
     public String dbPassword() {
-        return value("orders.db.password", "ORDERS_DB_PASSWORD", "orders");
+        return value("orders.db.password", "ORDERS_DB_PASSWORD", "dbadmin123");
     }
 
     public String kafkaBootstrapServers() {
@@ -44,14 +44,12 @@ public class OrdersConfig {
     }
 
     private String value(String property, String envKey, String defaultValue) {
+        String env = System.getenv(envKey);
+        if (env != null && !env.isBlank()) {
+            return env;
+        }
         return config.getOptionalValue(property, String.class)
                 .or(() -> config.getOptionalValue(envKey, String.class))
-                .orElseGet(() -> {
-                    String env = System.getenv(envKey);
-                    if (env != null && !env.isBlank()) {
-                        return env;
-                    }
-                    return defaultValue;
-                });
+                .orElse(defaultValue);
     }
 }

@@ -23,9 +23,6 @@
     <mpHealth id="healthConfig" />
     <mpMetrics id="metricsConfig" />
 
-    <variable name="orders.db.url" value="jdbc:postgresql://postgres:5432/orders"/>
-    <variable name="orders.db.user" value="orders"/>
-    <variable name="orders.db.password" value="orders"/>
     <variable name="orders.kafka.bootstrap.servers" value="kafka:9092"/>
     <variable name="orders.kafka.topic" value="orders-events"/>
     <variable name="orders.service.version" value="v1"/>

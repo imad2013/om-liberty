@@ -43,12 +43,14 @@ kafka_topics:
       min.insync.replicas: "1"
       compression.type: producer
 
-postgres_enabled: true
-postgres_image: postgres:17
-postgres_service_name: postgres
-postgres_db: orders
-postgres_user: orders
-postgres_password: orders
-postgres_storage_size: 1Gi
+oracle_enabled: true
+oracle_image: ora26
+oracle_service_name: oracle
+oracle_db: devdb
+oracle_user: dbadmin
+oracle_password: dbadmin123
+oracle_port: 1521
+oracle_storage_size: 20Gi
+orders_db_jdbc_url: ""
 
 orders_image_pull_policy: IfNotPresent

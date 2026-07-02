@@ -8,9 +8,9 @@
     state: present
     definition: "{{ lookup('template', 'namespace.yaml.j2') | from_yaml }}"
 
-- name: Provision PostgreSQL
-  ansible.builtin.include_tasks: postgres.yml
-  when: postgres_enabled | bool
+- name: Provision Oracle
+  ansible.builtin.include_tasks: oracle.yml
+  when: oracle_enabled | bool
 
 - name: Provision Kafka (KRaft) and topics
   ansible.builtin.include_tasks: kafka.yml
@@ -108,4 +108,4 @@
       - "Ingress host: {{ orders_ingress_host }}"
       - "Kafka enabled: {{ kafka_enabled }}"
       - "Kafka topics: {{ kafka_topics | map(attribute='name') | list if kafka_enabled else [] }}"
-      - "PostgreSQL enabled: {{ postgres_enabled }}"
+      - "Oracle enabled: {{ oracle_enabled }}"

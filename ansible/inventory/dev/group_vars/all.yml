@@ -41,8 +41,8 @@ kafka_topics:
       min.insync.replicas: "1"
       compression.type: producer
 
-# PostgreSQL
-postgres_enabled: true
-postgres_image: postgres:17
+# Oracle Database
+oracle_enabled: true
+oracle_image: ora26
 
 orders_image_pull_policy: Always

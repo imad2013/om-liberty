@@ -8,7 +8,7 @@
 #   - Liberty Docker image
 #
 # Deploys to Kubernetes (via Ansible):
-#   - Namespace, PostgreSQL, Kafka (KRaft) + topics
+#   - Namespace, Oracle, Kafka (KRaft) + topics
 #   - Single orders-service Deployment (rolling update), Service, Ingress, ServiceMonitor
 #
 # Usage:
@@ -38,6 +38,8 @@ SERVER_CONFIG="${SERVER_CONFIG:-server.xml}"
 ORDERS_NAMESPACE="${ORDERS_NAMESPACE:-orders}"
 KUBECONFIG_PATH="${KUBECONFIG:-${HOME}/.kube/config}"
 KUBE_CONTEXT=""
+ORACLE_ENABLED="${ORACLE_ENABLED:-auto}"
+ORDERS_DB_JDBC_URL="${ORDERS_DB_JDBC_URL:-}"
 
 ORDERS_IMAGE="${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
 
@@ -77,6 +79,28 @@ preflight() {
   log "Image:     ${ORDERS_IMAGE}"
   log "Inventory: ansible/${INVENTORY}"
   log "Push images: ${PUSH_IMAGES}"
+
+  if ! docker image inspect ora26:latest >/dev/null 2>&1; then
+    if docker image inspect container-registry.oracle.com/database/free:23.26.0.0-lite-arm64 >/dev/null 2>&1; then
+      log "Tagging Oracle 26 image as ora26:latest for Kubernetes"
+      docker tag container-registry.oracle.com/database/free:23.26.0.0-lite-arm64 ora26:latest
+    fi
+  fi
+
+  if [[ "${ORACLE_ENABLED}" == "auto" ]]; then
+    if [[ "${KUBE_CONTEXT}" == "docker-desktop" ]] && docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'ora26'; then
+      ORACLE_ENABLED="false"
+      ORDERS_DB_JDBC_URL="${ORDERS_DB_JDBC_URL:-jdbc:oracle:thin:@//host.docker.internal:1521/devdb}"
+      log "Host Oracle container 'ora26' detected — using ${ORDERS_DB_JDBC_URL}"
+    else
+      ORACLE_ENABLED="true"
+    fi
+  fi
+
+  log "Oracle in-cluster: ${ORACLE_ENABLED}"
+  if [[ -n "${ORDERS_DB_JDBC_URL}" ]]; then
+    log "Orders DB URL: ${ORDERS_DB_JDBC_URL}"
+  fi
 }
 
 # ---------------------------------------------------------------------------
@@ -178,6 +202,10 @@ deploy_kubernetes() {
   fi
 
   log "Deploying full stack to Kubernetes via Ansible (standard rolling update)"
+  local extra_oracle=(-e "oracle_enabled=${ORACLE_ENABLED}")
+  if [[ -n "${ORDERS_DB_JDBC_URL}" ]]; then
+    extra_oracle+=(-e "orders_db_jdbc_url=${ORDERS_DB_JDBC_URL}")
+  fi
   (
     cd ansible
     ansible-playbook \
@@ -187,7 +215,7 @@ deploy_kubernetes() {
       -e "orders_namespace=${ORDERS_NAMESPACE}" \
       -e "orders_image_pull_policy=${pull_policy}" \
       -e "kubeconfig_path=${KUBECONFIG_PATH}" \
-      -e "postgres_enabled=true" \
+      "${extra_oracle[@]}" \
       -e "kafka_enabled=true"
   )
 }
