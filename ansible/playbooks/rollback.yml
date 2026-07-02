@@ -1,0 +1,11 @@
+---
+- name: Roll back orders-service traffic to blue
+  hosts: localhost
+  gather_facts: false
+  vars:
+    orders_target_color: blue
+  tasks:
+    - name: Roll back traffic to blue
+      ansible.builtin.import_role:
+        name: orders-k8s
+        tasks_from: rollout.yml

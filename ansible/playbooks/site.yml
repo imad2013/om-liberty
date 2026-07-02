@@ -1,0 +1,3 @@
+---
+- name: Full orders-service site deployment
+  import_playbook: deploy.yml

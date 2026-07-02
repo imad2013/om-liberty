@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-service
+  namespace: orders
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: orders-service
+  template:
+    metadata:
+      labels:
+        app: orders-service
+    spec:
+      containers:
+        - name: liberty
+          image: my-registry/orders-service:1.0.0
+          ports:
+            - containerPort: 9080
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 9080
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 9080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 6
+          env:
+            - name: MP_METRICS_TAGS
+              value: "version=v1"
+            - name: ORDERS_SERVICE_VERSION
+              value: "v1"

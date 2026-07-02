@@ -1,0 +1,4 @@
+---
+- name: Orders K8s role entry (use tasks_from in playbooks)
+  ansible.builtin.debug:
+    msg: "Use playbooks/deploy.yml, rollout.yml, rollback.yml, status.yml, or teardown.yml"

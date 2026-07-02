@@ -1,0 +1,61 @@
+---
+- name: Read namespace
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: v1
+    kind: Namespace
+    name: "{{ orders_namespace }}"
+  register: orders_ns_info
+
+- name: Read deployments
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ orders_namespace }}"
+    label_selectors:
+      - app=orders-service
+  register: orders_deployments_info
+  when: orders_ns_info.resources | length > 0
+
+- name: Read service
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: v1
+    kind: Service
+    name: orders-service
+    namespace: "{{ orders_namespace }}"
+  register: orders_service_info
+  when: orders_ns_info.resources | length > 0
+
+- name: Read ingress
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: networking.k8s.io/v1
+    kind: Ingress
+    name: orders-ingress
+    namespace: "{{ orders_namespace }}"
+  register: orders_ingress_info
+  when: orders_ns_info.resources | length > 0
+
+- name: Summarize deployment status
+  ansible.builtin.debug:
+    msg:
+      namespace: "{{ orders_namespace }}"
+      namespace_exists: "{{ (orders_ns_info.resources | length) > 0 }}"
+      active_color: "{{ orders_service_info.resources[0].spec.selector.color | default('unknown') }}"
+      deployments: >-
+        {{
+          orders_deployments_info.resources | default([]) | map(attribute='metadata.name') | list
+        }}
+      deployment_ready: >-
+        {{
+          orders_deployments_info.resources | default([]) | map(attribute='status.readyReplicas') | list
+        }}
+      ingress_host: "{{ orders_ingress_info.resources[0].spec.rules[0].host | default('n/a') }}"
+  when: orders_ns_info.resources | length > 0
+
+- name: Report missing namespace
+  ansible.builtin.debug:
+    msg: "Namespace {{ orders_namespace }} does not exist. Run deploy playbook first."
+  when: orders_ns_info.resources | length == 0

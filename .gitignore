@@ -1,0 +1,13 @@
+target/
+node/
+node_modules/
+.next/
+out/
+*.war
+liberty/orders-service.war
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+*.retry
+.ansible/
+ansible/.ansible/

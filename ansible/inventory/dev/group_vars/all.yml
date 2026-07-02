@@ -1,0 +1,48 @@
+---
+# Development cluster defaults
+orders_namespace: orders
+orders_ingress_host: orders.example.com
+orders_ingress_class: nginx
+
+# Container images
+orders_blue_image: my-registry/orders-service:latest
+orders_green_image: my-registry/orders-service:latest
+orders_image: my-registry/orders-service:latest
+
+# Deployment sizing
+orders_blue_replicas: 1
+orders_green_replicas: 1
+orders_replicas: 1
+
+# Active traffic color: blue | green
+orders_active_color: blue
+
+# Observability
+orders_servicemonitor_enabled: true
+orders_servicemonitor_interval: 15s
+
+# Rollout safety
+orders_rollout_wait_timeout: 300
+orders_rollout_validate_target: true
+
+# Kubeconfig (override via env KUBECONFIG or -e kubeconfig_path=...)
+kubeconfig_path: "{{ lookup('env', 'KUBECONFIG') | default('~/.kube/config', true) }}"
+
+# Kafka (KRaft — no ZooKeeper)
+kafka_enabled: true
+kafka_image: apache/kafka:latest
+kafka_topics:
+  - name: orders-events
+    partitions: 3
+    replication_factor: 1
+    config:
+      retention.ms: "604800000"
+      cleanup.policy: delete
+      min.insync.replicas: "1"
+      compression.type: producer
+
+# PostgreSQL
+postgres_enabled: true
+postgres_image: postgres:17
+
+orders_image_pull_policy: Always

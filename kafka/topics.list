@@ -1,0 +1,2 @@
+# name partitions replication_factor [config key=value ...]
+orders-events 3 1 retention.ms=604800000 cleanup.policy=delete min.insync.replicas=1 compression.type=producer

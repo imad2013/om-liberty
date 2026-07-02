@@ -1,0 +1,9 @@
+---
+- name: Deploy orders-service to Kubernetes
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Deploy full orders stack
+      ansible.builtin.import_role:
+        name: orders-k8s
+        tasks_from: deploy.yml

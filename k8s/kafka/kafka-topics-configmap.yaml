@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-topics-config
+  namespace: orders
+data:
+  topics.list: |
+    orders-events 3 1 retention.ms=604800000 cleanup.policy=delete min.insync.replicas=1 compression.type=producer
+  create-topics.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    BOOTSTRAP="${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}"
+    TOPICS_LIST="${KAFKA_TOPICS_LIST:-/etc/kafka/topics.list}"
+    KAFKA_TOPICS_BIN="/opt/kafka/bin/kafka-topics.sh"
+    for i in $(seq 1 30); do
+      if "${KAFKA_TOPICS_BIN}" --bootstrap-server "${BOOTSTRAP}" --list >/dev/null 2>&1; then
+        break
+      fi
+      sleep 2
+    done
+    while read -r name partitions replication configs; do
+      [[ -z "${name}" || "${name}" == \#* ]] && continue
+      args=(--bootstrap-server "${BOOTSTRAP}" --create --if-not-exists --topic "${name}" --partitions "${partitions}" --replication-factor "${replication}")
+      if [[ -n "${configs}" ]]; then
+        read -r -a config_array <<< "${configs}"
+        for cfg in "${config_array[@]}"; do
+          args+=(--config "${cfg}")
+        done
+      fi
+      "${KAFKA_TOPICS_BIN}" "${args[@]}"
+    done < "${TOPICS_LIST}"
+    "${KAFKA_TOPICS_BIN}" --bootstrap-server "${BOOTSTRAP}" --list

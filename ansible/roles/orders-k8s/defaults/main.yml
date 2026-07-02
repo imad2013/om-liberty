@@ -1,0 +1,54 @@
+---
+orders_namespace: orders
+orders_ingress_host: orders.example.com
+orders_ingress_class: nginx
+
+orders_blue_image: my-registry/orders-service:1.0.0
+orders_green_image: my-registry/orders-service:2.0.0
+
+orders_blue_replicas: 3
+orders_green_replicas: 3
+
+# Standard (non blue/green) deployment
+orders_image: my-registry/orders-service:1.0.0
+orders_replicas: 3
+orders_service_version: v1
+orders_restart_on_deploy: true
+
+orders_active_color: blue
+
+orders_servicemonitor_enabled: true
+orders_servicemonitor_interval: 15s
+
+orders_rollout_wait_timeout: 300
+orders_rollout_validate_target: true
+
+kubeconfig_path: "{{ lookup('env', 'KUBECONFIG') | default('~/.kube/config', true) }}"
+
+kafka_enabled: true
+kafka_image: apache/kafka:latest
+kafka_cluster_id: "4L6g3nShT-eMCtK--X86sw"
+kafka_service_name: kafka
+kafka_bootstrap_servers: "kafka:9092"
+kafka_auto_create_topics: false
+kafka_default_partitions: 3
+
+kafka_topics:
+  - name: orders-events
+    partitions: 3
+    replication_factor: 1
+    config:
+      retention.ms: "604800000"
+      cleanup.policy: delete
+      min.insync.replicas: "1"
+      compression.type: producer
+
+postgres_enabled: true
+postgres_image: postgres:17
+postgres_service_name: postgres
+postgres_db: orders
+postgres_user: orders
+postgres_password: orders
+postgres_storage_size: 1Gi
+
+orders_image_pull_policy: IfNotPresent

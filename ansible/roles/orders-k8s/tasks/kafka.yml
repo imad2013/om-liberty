@@ -1,0 +1,82 @@
+---
+- name: Deploy Kafka broker (KRaft, no ZooKeeper)
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'kafka-deployment.yaml.j2') | from_yaml }}"
+
+- name: Deploy Kafka service
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'kafka-service.yaml.j2') | from_yaml }}"
+
+- name: Wait for Kafka pod to be running
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: v1
+    kind: Pod
+    namespace: "{{ orders_namespace }}"
+    label_selectors:
+      - app=kafka
+  register: kafka_pods_info
+  until: >
+    kafka_pods_info.resources | length > 0 and
+    (kafka_pods_info.resources | selectattr('status.phase', 'equalto', 'Running') | list | length) >= 1
+  retries: 60
+  delay: 5
+
+- name: Wait for Kafka broker to accept connections
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig={{ kubeconfig_path }}
+      - -n
+      - "{{ orders_namespace }}"
+      - exec
+      - "deploy/{{ kafka_service_name }}"
+      - --
+      - /opt/kafka/bin/kafka-broker-api-versions.sh
+      - --bootstrap-server
+      - localhost:9092
+  register: kafka_broker_check
+  until: kafka_broker_check.rc == 0
+  retries: 60
+  delay: 5
+  changed_when: false
+
+- name: Deploy Kafka topics ConfigMap
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'kafka-topics-configmap.yaml.j2') | from_yaml }}"
+
+- name: Remove previous Kafka topic init job (if exists)
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: absent
+    api_version: batch/v1
+    kind: Job
+    name: kafka-init-topics
+    namespace: "{{ orders_namespace }}"
+    wait: true
+    wait_timeout: 60
+  ignore_errors: true
+
+- name: Run Kafka topic provisioning job
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'kafka-topic-job.yaml.j2') | from_yaml }}"
+    wait: true
+    wait_condition:
+      type: Complete
+      status: "True"
+    wait_timeout: "{{ orders_rollout_wait_timeout }}"
+
+- name: Show Kafka provisioning summary
+  ansible.builtin.debug:
+    msg:
+      - "Kafka image: {{ kafka_image }} (KRaft mode)"
+      - "Bootstrap: {{ kafka_bootstrap_servers }}"
+      - "Topics: {{ kafka_topics | map(attribute='name') | list }}"

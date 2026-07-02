@@ -1,0 +1,25 @@
+---
+orders_namespace: orders
+orders_ingress_host: orders.example.com
+orders_ingress_class: nginx
+
+orders_blue_image: my-registry/orders-service:1.0.0
+orders_green_image: my-registry/orders-service:2.0.0
+orders_image: my-registry/orders-service:1.0.0
+
+orders_blue_replicas: 3
+orders_green_replicas: 3
+orders_replicas: 3
+
+orders_active_color: blue
+
+orders_servicemonitor_enabled: true
+orders_servicemonitor_interval: 15s
+
+orders_rollout_wait_timeout: 600
+orders_rollout_validate_target: true
+
+kubeconfig_path: "{{ lookup('env', 'KUBECONFIG') | default('~/.kube/config', true) }}"
+
+kafka_enabled: true
+kafka_image: apache/kafka:latest

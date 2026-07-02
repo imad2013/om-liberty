@@ -1,0 +1,13 @@
+---
+- name: Validate active color
+  ansible.builtin.assert:
+    that:
+      - orders_active_color in ['blue', 'green']
+    fail_msg: "orders_active_color must be 'blue' or 'green'"
+
+- name: Validate rollout target color when set
+  ansible.builtin.assert:
+    that:
+      - orders_target_color in ['blue', 'green']
+    fail_msg: "orders_target_color must be 'blue' or 'green'"
+  when: orders_target_color is defined

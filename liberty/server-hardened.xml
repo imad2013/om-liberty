@@ -1,0 +1,58 @@
+<server description="Orders Service Liberty Server (Hardened)">
+
+    <featureManager>
+        <feature>jakartaee-10.0</feature>
+        <feature>mpHealth-4.0</feature>
+        <feature>mpMetrics-5.0</feature>
+        <feature>mpConfig-3.0</feature>
+        <feature>mpJwt-2.1</feature>
+        <feature>appSecurity-4.0</feature>
+        <feature>websocket-2.1</feature>
+    </featureManager>
+
+    <httpEndpoint id="defaultHttpEndpoint"
+                  host="0.0.0.0"
+                  httpPort="-1"
+                  httpsPort="9443"
+                  sslRef="defaultSSLConfig" />
+
+    <keyStore id="defaultKeyStore"
+              location="${env.KEYSTORE_PATH}"
+              password="${env.KEYSTORE_PASSWORD}" />
+
+    <ssl id="defaultSSLConfig"
+         keyStoreRef="defaultKeyStore"
+         sslProtocol="TLSv1.3"
+         clientAuthenticationSupported="true"
+         clientAuthentication="false" />
+
+    <webApplication id="orders-service"
+                    location="root.war"
+                    contextRoot="/" />
+
+    <logging consoleLogLevel="INFO"
+             traceSpecification="*=info"
+             messageFormat="JSON" />
+
+    <mpHealth id="healthConfig" />
+    <mpMetrics id="metricsConfig" />
+
+    <mpJwt id="jwtConfig"
+           issuer="${env.JWT_ISSUER}"
+           audiences="${env.JWT_AUDIENCE}"
+           jwksUri="${env.JWT_JWKS_URI}" />
+
+    <httpDispatcher
+        setHeader="Strict-Transport-Security=max-age=31536000;includeSubDomains;preload;
+                   X-Content-Type-Options=nosniff;
+                   X-Frame-Options=DENY" />
+
+    <variable name="orders.db.url" value="jdbc:postgresql://postgres:5432/orders"/>
+    <variable name="orders.db.user" value="orders"/>
+    <variable name="orders.db.password" value="orders"/>
+    <variable name="orders.kafka.bootstrap.servers" value="kafka:9092"/>
+    <variable name="orders.kafka.topic" value="orders-events"/>
+    <variable name="orders.service.version" value="v2"/>
+    <variable name="orders.security.enabled" value="true"/>
+
+</server>

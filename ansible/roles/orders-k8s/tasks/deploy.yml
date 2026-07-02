@@ -1,0 +1,111 @@
+---
+- name: Validate deployment variables
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Ensure namespace exists
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'namespace.yaml.j2') | from_yaml }}"
+
+- name: Provision PostgreSQL
+  ansible.builtin.include_tasks: postgres.yml
+  when: postgres_enabled | bool
+
+- name: Provision Kafka (KRaft) and topics
+  ansible.builtin.include_tasks: kafka.yml
+  when: kafka_enabled | bool
+
+- name: Deploy blue deployment
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'orders-blue.yaml.j2') | from_yaml }}"
+
+- name: Deploy green deployment
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'orders-green.yaml.j2') | from_yaml }}"
+
+- name: Restart orders deployments to pick up rebuilt images
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: patched
+    kind: Deployment
+    api_version: apps/v1
+    name: "{{ item }}"
+    namespace: "{{ orders_namespace }}"
+    definition:
+      spec:
+        template:
+          metadata:
+            annotations:
+              orders.k8s/deployed-at: "{{ lookup('pipe', 'date +%s') }}"
+  loop:
+    - orders-blue
+    - orders-green
+
+- name: Deploy orders service
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'orders-service.yaml.j2') | from_yaml }}"
+
+- name: Deploy ingress
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'orders-ingress.yaml.j2') | from_yaml }}"
+
+- name: Check if Prometheus ServiceMonitor CRD is installed
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: servicemonitors.monitoring.coreos.com
+  register: orders_servicemonitor_crd
+  when: orders_servicemonitor_enabled | bool
+
+- name: Deploy ServiceMonitor
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition: "{{ lookup('template', 'orders-servicemonitor.yaml.j2') | from_yaml }}"
+  when:
+    - orders_servicemonitor_enabled | bool
+    - orders_servicemonitor_crd.resources | default([]) | length > 0
+
+- name: Skip ServiceMonitor when Prometheus Operator is not installed
+  ansible.builtin.debug:
+    msg: "Skipping ServiceMonitor — servicemonitors.monitoring.coreos.com CRD not found"
+  when:
+    - orders_servicemonitor_enabled | bool
+    - orders_servicemonitor_crd.resources | default([]) | length == 0
+
+- name: Wait for active deployment to become ready
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: apps/v1
+    kind: Deployment
+    name: "orders-{{ orders_active_color }}"
+    namespace: "{{ orders_namespace }}"
+  register: orders_active_deployment
+  until: >
+    orders_active_deployment.resources | length > 0 and
+    (orders_active_deployment.resources[0].status.readyReplicas | default(0) | int)
+    >= (orders_active_deployment.resources[0].spec.replicas | int)
+  retries: "{{ (orders_rollout_wait_timeout | int) // 10 }}"
+  delay: 10
+
+- name: Show deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "Namespace: {{ orders_namespace }}"
+      - "Active color: {{ orders_active_color }}"
+      - "Blue image: {{ orders_blue_image }}"
+      - "Green image: {{ orders_green_image }}"
+      - "Ingress host: {{ orders_ingress_host }}"
+      - "Kafka enabled: {{ kafka_enabled }}"
+      - "Kafka topics: {{ kafka_topics | map(attribute='name') | list if kafka_enabled else [] }}"
+      - "PostgreSQL enabled: {{ postgres_enabled }}"

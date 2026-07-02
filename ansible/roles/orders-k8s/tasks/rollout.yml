@@ -1,0 +1,57 @@
+---
+- name: Set rollout target color
+  ansible.builtin.set_fact:
+    orders_target_color: "{{ orders_target_color | default('green') }}"
+
+- name: Validate rollout variables
+  ansible.builtin.include_tasks: validate.yml
+
+- name: Wait for target deployment to become ready
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: apps/v1
+    kind: Deployment
+    name: "orders-{{ orders_target_color }}"
+    namespace: "{{ orders_namespace }}"
+  register: orders_target_deployment
+  until: >
+    orders_target_deployment.resources | length > 0 and
+    (orders_target_deployment.resources[0].status.readyReplicas | default(0) | int)
+    >= (orders_target_deployment.resources[0].spec.replicas | int)
+  retries: "{{ (orders_rollout_wait_timeout | int) // 10 }}"
+  delay: 10
+  when: orders_rollout_validate_target | bool
+
+- name: Read current service
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig_path }}"
+    api_version: v1
+    kind: Service
+    name: orders-service
+    namespace: "{{ orders_namespace }}"
+  register: orders_service_info
+
+- name: Fail when service is missing
+  ansible.builtin.fail:
+    msg: "Service orders-service not found in namespace {{ orders_namespace }}. Run deploy playbook first."
+  when: orders_service_info.resources | length == 0
+
+- name: Switch service traffic to target color
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    merge_type: merge
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: orders-service
+        namespace: "{{ orders_namespace }}"
+      spec:
+        selector:
+          app: orders-service
+          color: "{{ orders_target_color }}"
+
+- name: Show rollout result
+  ansible.builtin.debug:
+    msg: "Traffic switched to color={{ orders_target_color }} in namespace {{ orders_namespace }}"

@@ -1,0 +1,34 @@
+<server description="Orders Service Liberty Server">
+
+    <featureManager>
+        <feature>webProfile-10.0</feature>
+        <feature>mpHealth-4.0</feature>
+        <feature>mpMetrics-5.0</feature>
+        <feature>mpConfig-3.0</feature>
+        <feature>websocket-2.1</feature>
+    </featureManager>
+
+    <httpEndpoint id="defaultHttpEndpoint"
+                  host="0.0.0.0"
+                  httpPort="9080" />
+
+    <webApplication id="orders-service"
+                    location="root.war"
+                    contextRoot="/" />
+
+    <logging consoleLogLevel="INFO"
+             traceSpecification="*=info"
+             messageFormat="JSON" />
+
+    <mpHealth id="healthConfig" />
+    <mpMetrics id="metricsConfig" />
+
+    <variable name="orders.db.url" value="jdbc:postgresql://postgres:5432/orders"/>
+    <variable name="orders.db.user" value="orders"/>
+    <variable name="orders.db.password" value="orders"/>
+    <variable name="orders.kafka.bootstrap.servers" value="kafka:9092"/>
+    <variable name="orders.kafka.topic" value="orders-events"/>
+    <variable name="orders.service.version" value="v1"/>
+    <variable name="orders.security.enabled" value="false"/>
+
+</server>

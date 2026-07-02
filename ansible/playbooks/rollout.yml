@@ -1,0 +1,11 @@
+---
+- name: Switch orders-service traffic (blue/green rollout)
+  hosts: localhost
+  gather_facts: false
+  vars:
+    orders_target_color: green
+  tasks:
+    - name: Rollout traffic to target color
+      ansible.builtin.import_role:
+        name: orders-k8s
+        tasks_from: rollout.yml

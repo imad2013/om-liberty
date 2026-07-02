@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-blue
+  namespace: {{ orders_namespace }}
+spec:
+  replicas: {{ orders_blue_replicas }}
+  selector:
+    matchLabels:
+      app: orders-service
+      color: blue
+  template:
+    metadata:
+      labels:
+        app: orders-service
+        color: blue
+    spec:
+      containers:
+        - name: liberty
+          image: {{ orders_blue_image }}
+          imagePullPolicy: {{ orders_image_pull_policy }}
+          ports:
+            - containerPort: 9080
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 9080
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 9080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 6
+          env:
+            - name: MP_METRICS_TAGS
+              value: "version=v1,color=blue"
+            - name: ORDERS_DB_URL
+              value: "jdbc:postgresql://{{ postgres_service_name }}:5432/{{ postgres_db }}"
+            - name: ORDERS_DB_USER
+              value: "{{ postgres_user }}"
+            - name: ORDERS_DB_PASSWORD
+              value: "{{ postgres_password }}"
+            - name: ORDERS_KAFKA_BOOTSTRAP_SERVERS
+              value: "{{ kafka_bootstrap_servers }}"
+            - name: ORDERS_KAFKA_TOPIC
+              value: "orders-events"
+            - name: ORDERS_SERVICE_VERSION
+              value: "v1"
+            - name: ORDERS_SECURITY_ENABLED
+              value: "false"

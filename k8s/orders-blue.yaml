@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-blue
+  namespace: orders
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: orders-service
+      color: blue
+  template:
+    metadata:
+      labels:
+        app: orders-service
+        color: blue
+    spec:
+      containers:
+        - name: liberty
+          image: my-registry/orders-service:1.0.0
+          ports:
+            - containerPort: 9080
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 9080
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 9080
+          env:
+            - name: MP_METRICS_TAGS
+              value: "version=v1,color=blue"

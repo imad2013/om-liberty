@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-init-topics
+  namespace: {{ orders_namespace }}
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: kafka-init
+          image: {{ kafka_image }}
+          command: ["/bin/bash", "/usr/local/bin/create-topics.sh"]
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "{{ kafka_bootstrap_servers }}"
+            - name: KAFKA_TOPICS_LIST
+              value: "/etc/kafka/topics.list"
+          volumeMounts:
+            - name: kafka-topics
+              mountPath: /etc/kafka/topics.list
+              subPath: topics.list
+            - name: kafka-topics
+              mountPath: /usr/local/bin/create-topics.sh
+              subPath: create-topics.sh
+      volumes:
+        - name: kafka-topics
+          configMap:
+            name: kafka-topics-config
+            defaultMode: 0755
